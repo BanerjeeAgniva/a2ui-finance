@@ -5,6 +5,11 @@ The agent emits UI as A2UI *components* (not HTML) using the real `a2ui-agent-sd
 builder; a trusted renderer draws them and sends button clicks back as A2UI
 ActionEvents. No LLM / API key needed.
 
+![Walkthrough: add an expense live, then ask AI to generate a savings-goal card](assets/walkthrough.gif)
+
+*Add an expense (the agent↔UI write-back loop), then type a prompt and let Gemini
+generate a new A2UI surface — both paths, live on the deployed app.*
+
 ## Run
 ```bash
 ./v/bin/python agent.py        # http://localhost:8000
