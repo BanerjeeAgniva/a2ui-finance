@@ -1,0 +1,108 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A2UI Finance</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#fff; --line:#e3e5e9; --mut:#6b7280; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --card:#1a1d24; --line:#2a2e37; --mut:#9aa3b2; } }
+  body { font:16px/1.5 system-ui,sans-serif; background:var(--bg); margin:0; padding:24px; }
+  #app { max-width:420px; margin:0 auto; }
+  .Card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; box-shadow:0 1px 3px #0001; }
+  .Column { display:flex; flex-direction:column; gap:10px; }
+  .Row { display:flex; gap:12px; align-items:center; }
+  .Row.between { justify-content:space-between; }
+  .Text { margin:0; }
+  .Text.caption { color:var(--mut); font-size:13px; text-transform:uppercase; letter-spacing:.04em; }
+  .grow { flex:1; }
+  hr { border:0; border-top:1px solid var(--line); margin:4px 0; width:100%; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--mut); }
+  input { font:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:9px; background:var(--bg); color:inherit; }
+  button { font:inherit; font-weight:600; padding:11px; border:0; border-radius:9px; background:var(--accent); color:#fff; cursor:pointer; }
+  button:active { transform:translateY(1px); }
+  #bar { max-width:420px; margin:0 auto 16px; display:flex; gap:8px; }
+  #bar input { flex:1; }
+  #bar button { background:#111827; }
+  @media (prefers-color-scheme: dark){ #bar button{ background:#374151; } }
+</style>
+<div id="bar">
+  <input id="q" placeholder="Ask AI for a finance view… (blank = live dashboard)">
+  <button onclick="generate()">Generate</button>
+</div>
+<div id="app"></div>
+<script>
+// --- trusted A2UI renderer: component name -> widget. The agent can only ---
+// --- request components we know how to draw (A2UI's security model).      ---
+const fields = {};  // TextField label -> current value, sent back with actions
+let currentQ = "";  // non-empty => showing an AI-generated surface
+
+function render(list) {
+  const byId = Object.fromEntries(list.map(c => [c.id, c]));
+  const referenced = new Set();
+  list.forEach(c => [].concat(c.children || [], c.child || []).forEach(id => referenced.add(id)));
+  const root = list.find(c => !referenced.has(c.id)) || list[list.length - 1];  // id nothing points to
+  const el = document.getElementById("app");
+  el.innerHTML = "";
+  el.append(draw(root, byId));
+}
+
+// A2UI text may be a literal string or a {@call/@path} object; show a best effort.
+function textOf(t) {
+  if (typeof t === "string") return t;
+  if (t && t.args && ("value" in t.args)) {
+    const v = t.args.value;
+    return typeof v === "object" ? "—" : String(v);
+  }
+  return "";
+}
+
+function draw(c, byId) {
+  const kids = ids => (ids || []).map(id => draw(byId[id], byId));
+  switch (c.component) {
+    case "Card": { const d = div("Card"); d.append(draw(byId[c.child], byId)); return d; }
+    case "Column": { const d = div("Column"); d.append(...kids(c.children)); return d; }
+    case "Row": { const d = div("Row" + (c.justify === "spaceBetween" ? " between" : "")); d.append(...kids(c.children)); return d; }
+    case "List": { const d = div("Column"); d.append(...kids(c.children)); return d; }
+    case "Divider": return Object.assign(document.createElement("hr"), {});
+    case "Text": {
+      const p = document.createElement("p");
+      p.className = "Text " + (c.variant || "body") + (c.weight ? " grow" : "");
+      p.textContent = textOf(c.text); return p;
+    }
+    case "TextField": {
+      const l = document.createElement("label"); l.textContent = c.label;
+      const i = document.createElement("input"); i.placeholder = c.placeholder || "";
+      i.value = fields[c.label] || "";
+      i.oninput = () => (fields[c.label] = i.value);
+      l.append(i); return l;
+    }
+    case "Button": {
+      const b = document.createElement("button");
+      b.textContent = textOf(byId[c.child]?.text) || "Submit";
+      b.onclick = () => act(c.action?.event?.name);
+      return b;
+    }
+    default: { const p = document.createElement("p"); p.textContent = "[" + c.component + "]"; return p; }
+  }
+}
+
+function div(cls) { const d = document.createElement("div"); d.className = cls; return d; }
+
+async function act(name) {
+  if (currentQ) return load(currentQ);         // AI surfaces are display-only: re-prompt
+  const r = await fetch("/api/action", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event: name, fields })
+  });
+  for (const k in fields) delete fields[k];    // clear form after submit
+  render(await r.json());
+}
+
+async function load(q) {
+  currentQ = q;
+  const r = await fetch("/api/ui" + (q ? "?q=" + encodeURIComponent(q) : ""));
+  render(await r.json());
+}
+function generate() { load(document.getElementById("q").value.trim()); }
+
+load("");   // start on the live deterministic dashboard
+</script>
