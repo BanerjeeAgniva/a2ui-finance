@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: a2ui-finance
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python agent.py          # binds 0.0.0.0:$PORT (Render sets $PORT)
+    healthCheckPath: /
+    envVars:
+      - key: GEMINI_API_KEY                 # set in Render dashboard; never in git
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: PYTHON_VERSION
+        value: 3.12.7                       # a2ui-agent-sdk needs >=3.10

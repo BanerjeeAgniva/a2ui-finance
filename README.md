@@ -11,6 +11,12 @@ ActionEvents. No LLM / API key needed.
 ./v/bin/python agent.py --selfcheck
 ```
 
+## Deploy (Render, free, no card)
+`render.yaml` is a Render Blueprint. On [render.com](https://render.com):
+New → Blueprint → connect this repo → it reads `render.yaml`. Set `GEMINI_API_KEY`
+in the dashboard (it's `sync: false`, so it's never committed). The app binds
+`$PORT` automatically. Without the key it still serves the deterministic dashboard.
+
 ## How it works
 - `agent.py` — builds the dashboard with `a2ui.builder.v1_0` (Card/Column/Row/Text/
   Divider/TextField/Button), flattens it to the A2UI wire shape (flat list, children
